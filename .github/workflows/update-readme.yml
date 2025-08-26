@@ -1,0 +1,46 @@
+name: Update README script table
+
+on:
+  push:
+    branches:
+      - main
+      - master
+    paths:
+      - "Code/**.R"
+      - "tools/build_readme_table.R"
+      - ".github/workflows/update-readme.yml"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write  # 允许推送回仓库
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up R
+        uses: r-lib/actions/setup-r@v2
+
+      - name: Install R deps (stringr, glue)
+        run: |
+          Rscript -e 'install.packages(c("stringr","glue"), repos="https://cloud.r-project.org")'
+
+      - name: Run build script
+        run: Rscript tools/build_readme_table.R
+
+      - name: Commit & push changes (if any)
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add README.md || true
+          git commit -m "chore: auto-update README script table [skip ci]" || echo "No changes to commit"
+          git push || echo "Nothing to push"
+on:
+  schedule:
+    - cron: "0 2 * * *"  # 每天 02:00 UTC
+  push:
+    ...
+  workflow_dispatch: {}
