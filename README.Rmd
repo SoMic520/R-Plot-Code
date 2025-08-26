@@ -1,0 +1,15 @@
+---
+title: "R-Plot-Code"
+output:
+  github_document:
+    html_preview: false
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE,
+  message = FALSE,
+  warning = FALSE,
+  fig.path = "README_files/",
+  fig.ext = "png"
+)
