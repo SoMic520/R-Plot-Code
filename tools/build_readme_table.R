@@ -22,7 +22,7 @@ CFG <- list(
   dry_run         = identical(tolower(Sys.getenv("DRYRUN", "false")), "true")
 )
 
-read_utf8  <- function(path, ...) readLines(path, encoding = "UTF-8", warn = FALSE， ...)
+read_utf8  <- function(path, ...) readLines(path, encoding = "UTF-8", warn = FALSE, ...)
 write_utf8 <- function(lines, path) writeLines(enc2utf8(lines), path, useBytes = TRUE)
 stop_if_missing <- function(path) { if (!file.exists(path)) stop(glue("找不到文件：{path}")) }
 
@@ -33,7 +33,8 @@ list_r_files <- function(root) {
 }
 
 parse_meta <- function(path, n = CFG$header_nlines) {
-  lines <- read_utf8(path); header <- utils::head(lines, n)
+  lines <- read_utf8(path)
+  header <- utils::head(lines, n)
   key_map <- list(
     title  = c("title","标题","功能","function"),
     input  = c("input","输入"),
@@ -42,7 +43,9 @@ parse_meta <- function(path, n = CFG$header_nlines) {
   )
   grab <- function(keys) {
     pat <- glue("^\\s*#+'?\\s*({paste(keys, collapse='|')})\\s*[:：]\\s*(.+)\\s*$")
-    m <- str_match(header, regex(pat, ignore_case = TRUE)); val <- m[,3]; val <- val[!is.na(val)]
+    m <- str_match(header, regex(pat, ignore_case = TRUE))
+    val <- m[,3]
+    val <- val[!is.na(val)]
     if (length(val) == 0) "" else str_trim(val[1])
   }
   data.frame(
@@ -63,11 +66,14 @@ render_table <- function(df) {
 }
 
 patch_readme <- function(readme_lines, table_lines) {
-  for (sm in CFG$start_markers) for (em in CFG$end_markers) {
-    s <- which(str_detect(readme_lines, fixed(sm))); e <- which(str_detect(readme_lines, fixed(em)))
-    if (length(s)==1 && length(e)==1 && e>s) {
-      message(glue("找到标记：{sm} ... {em}，将替换其间内容"))
-      return(c(readme_lines[1:s], table_lines, readme_lines[e:length(readme_lines)]))
+  for (sm in CFG$start_markers) {
+    for (em in CFG$end_markers) {
+      s <- which(str_detect(readme_lines, fixed(sm)))
+      e <- which(str_detect(readme_lines, fixed(em)))
+      if (length(s)==1 && length(e)==1 && e>s) {
+        message(glue("找到标记：{sm} ... {em}，将替换其间内容"))
+        return(c(readme_lines[1:s], table_lines, readme_lines[e:length(readme_lines)]))
+      }
     }
   }
   sec <- which(str_detect(readme_lines, regex(CFG$section_title_regex)))
@@ -84,12 +90,9 @@ main <- function() {
   metas <- if (length(files)) do.call(rbind, lapply(files, parse_meta)) else data.frame()
   if (nrow(metas)) metas$script <- gsub("\\\\", "/", metas$script)
   md_table <- render_table(metas)
-
   stop_if_missing(CFG$readme_path)
   readme <- read_utf8(CFG$readme_path)
-
   new_readme <- patch_readme(readme, md_table)
-
   if (CFG$dry_run) {
     message("DRYRUN=true：不写回文件，打印新内容预览")
     cat(paste(new_readme, collapse="\n"))
