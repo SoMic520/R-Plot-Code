@@ -9,9 +9,8 @@ on:
       - ".github/workflows/update-readme.yml"
       - "README.md"
   workflow_dispatch: {}
-  # 如需定时跑，解除下面注释（注意仍在同一个 on: 下）
-  # schedule:
-  #   - cron: "0 2 * * *"  # 每天 02:00 UTC
+  schedule:
+    - cron: "0 2 * * *"  # 每天 02:00 UTC；如不需要定时可整段删除
 
 permissions:
   contents: write
