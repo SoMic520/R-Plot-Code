@@ -1,0 +1,128 @@
+name: Auto Update README (R scripts table)
+
+on:
+  push:
+    branches: [ main, master ]
+    paths:
+      - "**/*.R"
+      - "README.md"
+      - ".github/workflows/auto-readme.yml"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo (full history for safe push)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+
+      # 如果没有 README，就创建一个最小版本（含占位标记）
+      - name: Ensure README exists (with markers)
+        run: |
+          if [ ! -f "README.md" ]; then
+            cat > README.md <<'EOF'
+# R-Plot-Code
+
+## 脚本清单（自动生成）
+<!-- SCRIPTS_TABLE_START -->
+<!-- SCRIPTS_TABLE_END -->
+EOF
+          else
+            # 如果已有 README 但缺少占位标记，则追加一段带标记的章节
+            if ! grep -q "<!-- SCRIPTS_TABLE_START -->" README.md || ! grep -q "<!-- SCRIPTS_TABLE_END -->" README.md; then
+              {
+                echo ""
+                echo "## 脚本清单（自动生成）"
+                echo "<!-- SCRIPTS_TABLE_START -->"
+                echo "<!-- SCRIPTS_TABLE_END -->"
+              } >> README.md
+            fi
+          fi
+
+      # 纯 Bash 生成脚本清单（解析每个 .R 文件前 120 行中的 Title/Input/Output/Note）
+      - name: Build scripts table (bash only)
+        run: |
+          set -euo pipefail
+          TABLE=/tmp/table.md
+          printf '| 脚本 | 功能简介 | 主要输入 | 主要输出 | 备注 |\n' > "$TABLE"
+          printf '|---|---|---|---|---|\n' >> "$TABLE"
+
+          # 收集仓库内所有 .R（已跟踪文件）
+          mapfile -t files < <(git ls-files '**/*.R' | sort -f)
+
+          if [ ${#files[@]} -eq 0 ]; then
+            printf '| (未检测到 .R 文件) |  |  |  |  |\n' >> "$TABLE"
+          else
+            TITLE_RE='Title|标题|功能|Function'
+            INPUT_RE='Input|输入'
+            OUTPUT_RE='Output|输出'
+            NOTE_RE='Note|备注'
+
+            for f in "${files[@]}"; do
+              hdr="$(head -n 120 "$f" 2>/dev/null || true)"
+
+              get_val () {
+                # 从注释行中抽取 key: value（支持 # 或 #'，支持中英文冒号）
+                echo "$hdr" | grep -E -i "^#'?[[:space:]]*($1)[[:space:]]*[:：][[:space:]]*(.+)$" | head -n1 \
+                  | sed -E "s/^#'?[[:space:]]*($1)[[:space:]]*[:：][[:space:]]*(.+)$/\2/I"
+              }
+
+              title=$(get_val "$TITLE_RE")
+              input=$(get_val "$INPUT_RE")
+              output=$(get_val "$OUTPUT_RE")
+              note=$(get_val "$NOTE_RE")
+
+              # 转义竖线，避免打乱 Markdown 表格
+              esc () { echo "${1//|/\\|}"; }
+
+              printf '| `%s` | %s | %s | %s | %s |\n' \
+                "$f" "$(esc "$title")" "$(esc "$input")" "$(esc "$output")" "$(esc "$note")" >> "$TABLE"
+            done
+          fi
+
+          echo "==== GENERATED TABLE ===="
+          cat "$TABLE"
+
+      # 用占位标记包裹的方式替换 README 中间内容
+      - name: Patch README between markers
+        run: |
+          set -euo pipefail
+          START='<!-- SCRIPTS_TABLE_START -->'
+          END='<!-- SCRIPTS_TABLE_END -->'
+
+          start_line=$(grep -n "$START" README.md | head -n1 | cut -d: -f1 || true)
+          end_line=$(grep -n "$END" README.md | head -n1 | cut -d: -f1 || true)
+
+          if [ -n "${start_line:-}" ] && [ -n "${end_line:-}" ] && [ "$end_line" -gt "$start_line" ]; then
+            head -n "$start_line" README.md > README.new
+            cat /tmp/table.md >> README.new
+            tail -n +"$end_line" README.md >> README.new
+            mv README.new README.md
+          else
+            # 极端情况：标记未命中（几乎不会发生，因为上一步已确保），则附加到文末
+            {
+              echo ""
+              echo "## 脚本清单（自动生成）"
+              echo "$START"
+              cat /tmp/table.md
+              echo "$END"
+            } >> README.md
+          fi
+
+      - name: Commit & push if changed
+        run: |
+          if git diff --quiet --exit-code -- README.md; then
+            echo "No changes in README.md."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add README.md
+          git commit -m "chore: auto-update README scripts table [skip ci]"
+          git push
