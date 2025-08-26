@@ -1,0 +1,72 @@
+name: Update README script table
+
+on:
+  push:
+    branches: [ main, master ]
+    paths:
+      - "Code/**.R"
+      - "tools/build_readme_table.R"
+      - ".github/workflows/update-readme.yml"
+      - "README.md"
+  workflow_dispatch: {}
+  # 如需定时，取消注释并保证仍在同一 on: 下
+  # schedule:
+  #   - cron: "0 2 * * *"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo (full history for safe push)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Ensure README exists
+        run: |
+          if [ ! -f "README.md" ]; then
+            cat > README.md <<'EOF'
+# R-Plot-Code
+
+## 脚本清单（自动生成）
+<!-- SCRIPTS_TABLE_START -->
+<!-- SCRIPTS_TABLE_END -->
+EOF
+          fi
+
+      - name: Set up R
+        uses: r-lib/actions/setup-r@v2
+
+      - name: Install R dependencies
+        run: |
+          Rscript -e 'tryCatch(install.packages(c("stringr","glue"), repos="https://cloud.r-project.org"), error=function(e){q(status=1)})' \
+          || Rscript -e 'install.packages(c("stringr","glue"), repos="https://cran.r-project.org")'
+
+      - name: Run build script
+        run: |
+          if [ ! -f "tools/build_readme_table.R" ]; then
+            echo "::error file=tools/build_readme_table.R::Script not found. Please commit tools/build_readme_table.R"
+            exit 1
+          fi
+          # 干跑预览（输出到日志）
+          Rscript -e 'Sys.setenv(DRYRUN="true"); source("tools/build_readme_table.R")' | tail -n 50 || true
+          # 正式执行（更新 README）
+          Rscript tools/build_readme_table.R
+
+      - name: Commit & push changes (if README modified)
+        run: |
+          if git diff --quiet --exit-code -- README.md; then
+            echo "No changes in README.md, skipping commit."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git pull --rebase origin "${GITHUB_REF_NAME}"
+          git add README.md
+          git commit -m "chore: auto-update README script table [skip ci]"
+          git push origin "${GITHUB_REF_NAME}"
