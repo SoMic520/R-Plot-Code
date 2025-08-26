@@ -1,2 +1,1 @@
-<!-- SCRIPTS_TABLE_START -->
-<!-- SCRIPTS_TABLE_END -->
+
