@@ -9,9 +9,6 @@ on:
       - ".github/workflows/update-readme.yml"
       - "README.md"
   workflow_dispatch: {}
-  # 定时运行（可选）：取消下面两行注释后，按 cron 规则执行
-  # schedule:
-  #   - cron: "0 2 * * *"  # 每天 02:00 UTC
 
 permissions:
   contents: write
@@ -30,13 +27,13 @@ jobs:
       - name: Ensure README exists
         run: |
           if [ ! -f "README.md" ]; then
-            cat > README.md <<'EOR'
+            cat > README.md <<'EOF'
 # R-Plot-Code
 
 ## 脚本清单（自动生成）
 <!-- SCRIPTS_TABLE_START -->
 <!-- SCRIPTS_TABLE_END -->
-EOR
+EOF
           fi
 
       - name: Set up R
@@ -53,9 +50,7 @@ EOR
             echo "::error file=tools/build_readme_table.R::Script not found. Please commit tools/build_readme_table.R"
             exit 1
           fi
-          # 干跑预览（日志中查看输出）
           Rscript -e 'Sys.setenv(DRYRUN="true"); source("tools/build_readme_table.R")' | tail -n 50 || true
-          # 正式运行脚本
           Rscript tools/build_readme_table.R
 
       - name: Commit & push changes (if README modified)
