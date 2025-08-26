@@ -1,0 +1,148 @@
+# tools/build_readme_table.R
+# Purpose:
+# 1) Generate table of R scripts under Code/ into README.md between AUTO-INDEX tags
+# 2) Generate repository tree (two levels) into README.md between AUTO-TREE tags
+# 3) Insert "recent build time (Beijing Time)" on top of AUTO-TREE block
+# Base R only, UTF-8 writes, ASCII-only tree connectors.
+
+readme <- "README.md"
+
+# Helpers
+read_utf8 <- function(path) readLines(path, warn = FALSE, encoding = "UTF-8")
+write_utf8 <- function(lines, path) {
+  con <- file(path, open = "w", encoding = "UTF-8")
+  writeLines(lines, con, sep = "\n", useBytes = TRUE)
+  close(con)
+}
+replace_block <- function(lines, begin_tag, end_tag, new_block_lines, add_title = NULL) {
+  b <- which(trimws(lines) == begin_tag)
+  e <- which(trimws(lines) == end_tag)
+  if (length(b) != 1L || length(e) != 1L || b >= e) {
+    add <- c(
+      if (!is.null(add_title)) add_title else NULL,
+      begin_tag,
+      new_block_lines,
+      end_tag,
+      ""
+    )
+    c(lines, "", add)
+  } else {
+    before <- if (b > 1) lines[1:b] else lines[b]
+    after  <- if (e < length(lines)) lines[e:length(lines)] else lines[e]
+    c(before, new_block_lines, after)
+  }
+}
+safe_read_lines <- function(f) {
+  tryCatch(length(readLines(f, warn = FALSE)), error = function(e) 0L)
+}
+last_commit_time <- function(path) {
+  cmd <- paste("git", "log", "-1", "--date=unix", "--format=%ad", "--", shQuote(path))
+  out <- tryCatch(system(cmd, intern = TRUE), error = function(e) character(0))
+  if (length(out) == 0) return("")
+  ts <- suppressWarnings(as.numeric(out[1]))
+  if (is.na(ts)) return("")
+  format(as.POSIXct(ts, origin = "1970-01-01", tz = "Asia/Shanghai"), "%Y-%m-%d %H:%M:%S")
+}
+build_time_line <- paste0(
+  "> 最近构建时间（北京时间）：",
+  format(as.POSIXct(Sys.time(), tz = "Asia/Shanghai"), "%Y-%m-%d %H:%M:%S")
+)
+
+# 1) AUTO-INDEX
+index_dir   <- "Code"
+index_begin <- "<!-- AUTO-INDEX:BEGIN -->"
+index_end   <- "<!-- AUTO-INDEX:END -->"
+
+if (dir.exists(index_dir)) {
+  files_all <- list.files(index_dir, pattern = "\\.[Rr]$", recursive = TRUE, full.names = TRUE)
+} else {
+  files_all <- character(0)
+}
+mk_index_table <- function(files) {
+  if (length(files) == 0) {
+    return(c("- 目前未在 `Code/` 目录下发现任何 `.R` 脚本；提交脚本后，Actions 将自动更新本表。"))
+  }
+  lines <- vapply(files, safe_read_lines, integer(1))
+  sizes <- file.info(files)$size
+  lastc <- vapply(files, last_commit_time, character(1))
+  header <- c(
+    "| 脚本 | 相对路径 | 行数 | 大小KB | 最近提交时间 |",
+    "|---|---|---:|---:|---|"
+  )
+  rows <- mapply(function(f, ln, sz, lc) {
+    name <- basename(f); sizekb <- sprintf("%.1f", as.numeric(sz)/1024)
+    paste0("| ", name, " | ", f, " | ", ln, " | ", sizekb, " | ", lc, " |")
+  }, files, lines, sizes, lastc, USE.NAMES = FALSE)
+  c(header, rows)
+}
+index_block <- mk_index_table(files_all)
+
+# 2) AUTO-TREE
+tree_begin <- "<!-- AUTO-TREE:BEGIN -->"
+tree_end   <- "<!-- AUTO-TREE:END -->"
+
+exclude_dirs <- c(".git", ".github", "README_files", "renv", "packrat", ".Rproj.user")
+is_excluded <- function(name) any(name %in% exclude_dirs)
+
+top <- list.files(".", all.files = FALSE, recursive = FALSE)
+top <- top[!is_excluded(top)]
+info1 <- file.info(top)
+ord1 <- order(!info1$isdir, tolower(rownames(info1)))
+top <- top[ord1]; info1 <- info1[ord1, , drop = FALSE]
+
+lines_tree <- c(".")
+n1 <- length(top)
+for (i in seq_len(n1)) {
+  name1 <- top[i]; isdir1 <- info1$isdir[i]
+  conn1 <- "`-- " if (i == n1) else "|-- "  # will be replaced below to avoid R parse issue
+  # fix R conditional connectors safely:
+  conn1 <- if (i == n1) "`-- " else "|-- "
+  disp1 <- if (isdir1) paste0(name1, "/") else name1
+  lines_tree <- c(lines_tree, paste0(conn1, disp1))
+  if (isdir1) {
+    sub <- list.files(file.path(".", name1), all.files = FALSE, recursive = FALSE)
+    sub <- sub[!is_excluded(sub)]
+    if (length(sub)) {
+      info2 <- file.info(file.path(name1, sub))
+      ord2 <- order(!info2$isdir, tolower(rownames(info2)))
+      sub <- sub[ord2]; info2 <- info2[ord2, , drop = FALSE]
+      n2 <- length(sub)
+      for (j in seq_len(n2)) {
+        name2 <- sub[j]; isdir2 <- info2$isdir[j]
+        branch <- "    " if (i == n1) else "|   "  # will be replaced below
+        branch <- if (i == n1) "    " else "|   "
+        conn2 <- "`-- " if (j == n2) else "|-- "  # will be replaced below
+        conn2 <- if (j == n2) "`-- " else "|-- "
+        disp2 <- if (isdir2) paste0(name2, "/") else name2
+        lines_tree <- c(lines_tree, paste0(branch, conn2, disp2))
+      }
+    }
+  }
+}
+
+tree_block <- c(build_time_line, "", "```text", lines_tree, "```")
+
+# Write
+if (!file.exists(readme)) {
+  skeleton <- c(
+    "# R-Plot-Code",
+    "",
+    "## 目录结构",
+    "<!-- AUTO-TREE:BEGIN -->",
+    "(生成中……)",
+    "<!-- AUTO-TREE:END -->",
+    "",
+    "## 脚本清单（自动生成）",
+    "<!-- AUTO-INDEX:BEGIN -->",
+    "(生成中……)",
+    "<!-- AUTO-INDEX:END -->",
+    ""
+  )
+  write_utf8(skeleton, readme)
+}
+
+lines <- read_utf8(readme)
+lines <- replace_block(lines, index_begin, index_end, index_block, add_title = "## 脚本清单（自动生成）")
+lines <- replace_block(lines, tree_begin,  tree_end,  tree_block,  add_title = "## 目录结构")
+write_utf8(lines, readme)
+message("README.md updated.")
