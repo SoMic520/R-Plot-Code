@@ -1,0 +1,70 @@
+name: Auto update README (R)
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'README.Rmd'
+      - 'tools/**'
+      - '.github/workflows/auto-readme.yml'
+    paths-ignore:
+      - 'README.md'   # 防止自己改动 README.md 再次触发循环
+  workflow_dispatch: {}
+  schedule:
+    - cron: '0 9 * * *'  # 每天 09:00 UTC 运行
+
+permissions:
+  contents: write  # 允许用 GITHUB_TOKEN 推送改动
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    concurrency:
+      group: auto-readme
+      cancel-in-progress: true
+    env:
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup R
+        uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: 'release'
+
+      - name: Setup Pandoc
+        uses: r-lib/actions/setup-pandoc@v2
+
+      - name: Install R packages
+        run: |
+          Rscript -e 'install.packages(c("rmarkdown","knitr","readr","dplyr","ggplot2"), repos="https://cloud.r-project.org")'
+
+      - name: Run tools/build_readme_table.R (if exists)
+        if: ${{ hashFiles('tools/build_readme_table.R') != '' }}
+        run: |
+          Rscript -e 'source("tools/build_readme_table.R", encoding = "UTF-8")'
+
+      - name: Render README.Rmd -> README.md (if exists)
+        if: ${{ hashFiles('README.Rmd') != '' }}
+        run: |
+          Rscript -e 'rmarkdown::render("README.Rmd", output_format = "md_document", quiet = TRUE)'
+
+      - name: Configure Git
+        run: |
+          git config --local user.name  "github-actions[bot]"
+          git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Commit & Push (only if changed)
+        run: |
+          git add -A
+          if git diff --staged --quiet; then
+            echo "No changes to commit."
+          else
+            git commit -m "chore: auto update README [skip ci]"
+            git push
+          fi
