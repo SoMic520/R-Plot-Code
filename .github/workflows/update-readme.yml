@@ -9,8 +9,9 @@ on:
       - ".github/workflows/update-readme.yml"
       - "README.md"
   workflow_dispatch: {}
-  schedule:
-    - cron: "0 2 * * *"  # 每天 02:00 UTC；如不需要定时可整段删除
+  # 如需定时，取消注释并保留在同一个 on: 下
+  # schedule:
+  #   - cron: "0 2 * * *"
 
 permissions:
   contents: write
@@ -43,7 +44,6 @@ jobs:
       - name: Ensure README exists
         run: |
           if [ ! -f "README.md" ]; then
-            echo "README.md not found at repo root. Creating a minimal one."
             cat > README.md <<'EOF'
 # R-Plot-Code
 
@@ -71,9 +71,9 @@ EOF
             echo "::error file=tools/build_readme_table.R::Script not found. Please commit tools/build_readme_table.R"
             exit 1
           fi
-          # 干跑预览（可选）
+          # 干跑预览（便于在日志里看到输出）
           Rscript -e 'Sys.setenv(DRYRUN="true"); source("tools/build_readme_table.R")' | tail -n 50 || true
-          # 正式执行
+          # 正式执行（写回 README）
           Rscript tools/build_readme_table.R
 
       - name: Show README diff
