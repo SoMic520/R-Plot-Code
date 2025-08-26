@@ -9,7 +9,7 @@ on:
       - ".github/workflows/update-readme.yml"
       - "README.md"
   workflow_dispatch: {}
-  # 如需定时，取消注释并保留在同一个 on: 下
+  # 如需定时，取消注释并确保仍在同一个 on: 下
   # schedule:
   #   - cron: "0 2 * * *"
 
@@ -71,7 +71,7 @@ EOF
             echo "::error file=tools/build_readme_table.R::Script not found. Please commit tools/build_readme_table.R"
             exit 1
           fi
-          # 干跑预览（便于在日志里看到输出）
+          # 干跑预览（日志里看输出）
           Rscript -e 'Sys.setenv(DRYRUN="true"); source("tools/build_readme_table.R")' | tail -n 50 || true
           # 正式执行（写回 README）
           Rscript tools/build_readme_table.R
