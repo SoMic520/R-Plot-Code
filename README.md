@@ -1,6 +1,7 @@
 # R-Plot-Code
 
-**专为高校与科研人员打造的科研绘图代码合集（R 语言）**  
+#**专为高校与科研人员打造的科研绘图代码合集（R 语言）**
+
 提供常见学术期刊风格图形的可复用脚本与模板，覆盖数据读取、整理到可视化的完整链路，支持一键复现与自定义主题。
 
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](LICENSE)
