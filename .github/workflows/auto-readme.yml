@@ -7,8 +7,6 @@ on:
       - 'README.Rmd'
       - 'tools/**'
       - '.github/workflows/auto-readme.yml'
-    paths-ignore:
-      - 'README.md'   # 防止自己改动 README.md 再次触发循环
   workflow_dispatch: {}
   schedule:
     - cron: '0 9 * * *'  # 每天 09:00 UTC 运行
@@ -18,6 +16,8 @@ permissions:
 
 jobs:
   render:
+    # 避免机器人提交再触发本工作流（双保险；定时触发仍会执行）
+    if: github.actor != 'github-actions[bot]' || github.event_name != 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     concurrency:
