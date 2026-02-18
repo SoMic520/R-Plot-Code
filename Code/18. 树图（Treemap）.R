@@ -1,36 +1,38 @@
 # 18. 树图（Treemap）
-# Treemap（层级占比可视化）
-# 说明：本脚本使用模拟数据，运行后会在当前目录导出图片文件。
+# 出版级版本：统一主题、颜色体系与导出规格（PDF/TIFF/PNG）。
 
 suppressPackageStartupMessages({
   library(ggplot2)
   library(dplyr)
-  library(treemapify)
+  library(tidyr)
+  library(scales)
+  library(RColorBrewer)
+  library(ggpubr)
+  library(viridis)
 })
 
-set.seed(123)
+if (file.exists("Code/00. 出版级绘图主题与导出函数.R")) {
+  source("Code/00. 出版级绘图主题与导出函数.R")
+} else {
+  stop("请先确保存在 Code/00. 出版级绘图主题与导出函数.R")
+}
+
+set.seed(2025)
 plot_data <- tibble::tibble(
-  group = rep(c("细菌门A", "细菌门B", "细菌门C", "细菌门D"), each = 3),
-  subgroup = paste0("亚类", 1:12),
-  abundance = round(runif(12, 5, 30), 1)
+  phylum = rep(c("Firmicutes", "Bacteroidetes", "Actinobacteria", "Proteobacteria"), each = 4),
+  genus = paste0("Genus_", seq_len(16)),
+  abundance = round(runif(16, 6, 28), 1)
 )
 
-p <- ggplot(plot_data, aes(area = abundance, fill = group, label = paste0(subgroup, "\n", abundance))) +
-treemapify::geom_treemap(color = "white", linewidth = 1) +
-  treemapify::geom_treemap_text(place = "centre", reflow = TRUE, grow = TRUE) +
-  scale_fill_brewer(palette = "Set2") +
-  scale_color_brewer(palette = "Set2") +
-  labs(
-    title = "Treemap（层级占比可视化）",
-    x = "",
-    y = ""
-  ) +
-  theme_classic(base_size = 14) +
-  theme(
-    plot.title = element_text(face = "bold", hjust = 0.5),
-    axis.title = element_text(face = "bold"),
-    legend.position = "top"
-  )
+p <- ggplot(plot_data, aes(area = abundance, fill = phylum, subgroup = phylum, label = paste0(genus, "
+", abundance, "%"))) +
+  treemapify::geom_treemap(color = "white", linewidth = 0.8) +
+  treemapify::geom_treemap_subgroup_border(color = "grey30", linewidth = 0.6) +
+  treemapify::geom_treemap_text(place = "centre", reflow = TRUE, grow = FALSE, colour = "black", min.size = 7.5) +
+  scale_fill_brewer(palette = "Set3") +
+  labs(title = "Treemap of Taxonomic Abundance", subtitle = "Area encodes relative abundance", fill = "Phylum") +
+  theme_pub() +
+  theme(axis.line = element_blank(), axis.ticks = element_blank(), axis.text = element_blank(), panel.grid = element_blank())
 
 print(p)
-ggsave("treemap_plot.png", p, width = 7.2, height = 5.2, dpi = 320)
+save_pub(p, "treemap_publication", width = 180, height = 140, dpi = 600)

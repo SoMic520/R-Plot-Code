@@ -1,45 +1,42 @@
 # 09. 误差线折线图
-# 均值折线图 + 标准误误差线
-# 说明：本脚本使用模拟数据，运行后会在当前目录导出图片文件。
+# 出版级版本：统一主题、颜色体系与导出规格（PDF/TIFF/PNG）。
 
 suppressPackageStartupMessages({
   library(ggplot2)
   library(dplyr)
+  library(tidyr)
+  library(scales)
+  library(RColorBrewer)
+  library(ggpubr)
+  library(viridis)
 })
 
-set.seed(123)
+if (file.exists("Code/00. 出版级绘图主题与导出函数.R")) {
+  source("Code/00. 出版级绘图主题与导出函数.R")
+} else {
+  stop("请先确保存在 Code/00. 出版级绘图主题与导出函数.R")
+}
+
+set.seed(2025)
 raw_data <- tidyr::crossing(
-  treatment = c("Control", "DrugA", "DrugB"),
-  day = seq(0, 21, by = 3),
+  day = seq(0, 28, by = 4),
+  treatment = factor(c("Control", "Drug A", "Drug B"), levels = c("Control", "Drug A", "Drug B")),
   rep = 1:18
 ) |>
-  mutate(value = 20 + as.numeric(factor(treatment)) * 2 + day * 0.45 + rnorm(n(), 0, 1.8))
+  dplyr::mutate(value = 15 + day * 0.55 + as.numeric(treatment) * 1.8 + rnorm(dplyr::n(), 0, 1.4))
 
 plot_data <- raw_data |>
-  group_by(treatment, day) |>
-  summarise(
-    mean_value = mean(value),
-    se_value = sd(value) / sqrt(n()),
-    .groups = "drop"
-  )
+  dplyr::group_by(day, treatment) |>
+  dplyr::summarise(mean = mean(value), se = sd(value)/sqrt(dplyr::n()), .groups = "drop")
 
-p <- ggplot(plot_data, aes(day, mean_value, color = treatment)) +
-geom_line(linewidth = 1) +
-  geom_point(size = 2.4) +
-  geom_errorbar(aes(ymin = mean_value-se_value, ymax = mean_value+se_value), width = 0.18) +
-  scale_fill_brewer(palette = "Set2") +
-  scale_color_brewer(palette = "Set2") +
-  labs(
-    title = "均值折线图 + 标准误误差线",
-    x = "",
-    y = ""
-  ) +
-  theme_classic(base_size = 14) +
-  theme(
-    plot.title = element_text(face = "bold", hjust = 0.5),
-    axis.title = element_text(face = "bold"),
-    legend.position = "top"
-  )
+p <- ggplot(plot_data, aes(day, mean, color = treatment)) +
+  geom_line(linewidth = 0.9) +
+  geom_point(size = 2.3) +
+  geom_errorbar(aes(ymin = mean - se, ymax = mean + se), width = 0.2, linewidth = 0.45) +
+  scale_color_pub() +
+  scale_x_continuous(breaks = seq(0, 28, 4)) +
+  labs(title = "Longitudinal Response Curves", subtitle = "Mean ± SE", x = "Day", y = "Outcome value") +
+  theme_pub()
 
 print(p)
-ggsave("line_errorbar_plot.png", p, width = 7.2, height = 5.2, dpi = 320)
+save_pub(p, "line_errorbar_publication", width = 180, height = 140, dpi = 600)

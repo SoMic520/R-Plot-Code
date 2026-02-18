@@ -1,40 +1,41 @@
 # 15. 火山图
-# 火山图（差异分析）
-# 说明：本脚本使用模拟数据，运行后会在当前目录导出图片文件。
+# 出版级版本：统一主题、颜色体系与导出规格（PDF/TIFF/PNG）。
 
 suppressPackageStartupMessages({
   library(ggplot2)
   library(dplyr)
+  library(tidyr)
+  library(scales)
+  library(RColorBrewer)
+  library(ggpubr)
+  library(viridis)
 })
 
-set.seed(123)
+if (file.exists("Code/00. 出版级绘图主题与导出函数.R")) {
+  source("Code/00. 出版级绘图主题与导出函数.R")
+} else {
+  stop("请先确保存在 Code/00. 出版级绘图主题与导出函数.R")
+}
+
+set.seed(2025)
 plot_data <- tibble::tibble(
-  gene = paste0("Gene", 1:350),
-  log2FC = rnorm(350, 0, 1.4),
-  pvalue = runif(350, 0.0005, 0.2)
+  gene = paste0("Gene", seq_len(1200)),
+  log2FC = rnorm(1200, 0, 1.3),
+  pvalue = runif(1200, 1e-5, 0.2)
 ) |>
-  mutate(category = case_when(
-    log2FC >= 1 & pvalue < 0.05 ~ "Up",
-    log2FC <= -1 & pvalue < 0.05 ~ "Down",
+  dplyr::mutate(category = dplyr::case_when(
+    log2FC >= 1 & pvalue < 0.05 ~ "Upregulated",
+    log2FC <= -1 & pvalue < 0.05 ~ "Downregulated",
     TRUE ~ "NS"
   ))
 
-p <- ggplot(plot_data, aes(x = log2FC, y = -log10(pvalue))) +
-geom_point(aes(color = category), size = 2, alpha = 0.8) +
-  geom_vline(xintercept = c(-1,1), linetype = 2) +
-  geom_hline(yintercept = -log10(0.05), linetype = 2) +
-  scale_color_manual(values = c("Up" = "#D55E00", "Down" = "#0072B2", "NS" = "grey70")) +
-  labs(
-    title = "火山图（差异分析）",
-    x = "",
-    y = ""
-  ) +
-  theme_classic(base_size = 14) +
-  theme(
-    plot.title = element_text(face = "bold", hjust = 0.5),
-    axis.title = element_text(face = "bold"),
-    legend.position = "top"
-  )
+p <- ggplot(plot_data, aes(log2FC, -log10(pvalue), color = category)) +
+  geom_point(size = 1.6, alpha = 0.78) +
+  geom_vline(xintercept = c(-1, 1), linetype = 2, linewidth = 0.5) +
+  geom_hline(yintercept = -log10(0.05), linetype = 2, linewidth = 0.5) +
+  scale_color_manual(values = c("Upregulated" = "#D55E00", "Downregulated" = "#0072B2", "NS" = "grey70")) +
+  labs(title = "Volcano Plot", subtitle = "Differential expression overview", x = "log2(Fold Change)", y = "-log10(p-value)", color = "Category") +
+  theme_pub()
 
 print(p)
-ggsave("volcano_plot.png", p, width = 7.2, height = 5.2, dpi = 320)
+save_pub(p, "volcano_publication", width = 180, height = 140, dpi = 600)

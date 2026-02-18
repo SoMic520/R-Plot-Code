@@ -1,37 +1,38 @@
 # 05. 箱线图+抖动点
-# 箱线图 + 抖动点（展示分布与离群值）
-# 说明：本脚本使用模拟数据，运行后会在当前目录导出图片文件。
+# 出版级版本：统一主题、颜色体系与导出规格（PDF/TIFF/PNG）。
 
 suppressPackageStartupMessages({
   library(ggplot2)
   library(dplyr)
+  library(tidyr)
+  library(scales)
+  library(RColorBrewer)
+  library(ggpubr)
+  library(viridis)
 })
 
-set.seed(123)
+if (file.exists("Code/00. 出版级绘图主题与导出函数.R")) {
+  source("Code/00. 出版级绘图主题与导出函数.R")
+} else {
+  stop("请先确保存在 Code/00. 出版级绘图主题与导出函数.R")
+}
+
+set.seed(2025)
 plot_data <- tidyr::crossing(
-  group = c("Control", "TreatmentA", "TreatmentB"),
-  batch = c("Batch1", "Batch2"),
-  rep = 1:45
+  group = factor(c("Control", "Treatment A", "Treatment B"), levels = c("Control", "Treatment A", "Treatment B")),
+  rep = 1:55
 ) |>
-  mutate(value = rnorm(n(), mean = c(5.6, 6.3, 7.2)[as.numeric(factor(group))], sd = 0.9))
+  dplyr::mutate(value = rnorm(dplyr::n(), mean = c(5.8, 6.8, 7.4)[as.numeric(group)], sd = 0.75))
 
 p <- ggplot(plot_data, aes(group, value, fill = group)) +
-geom_boxplot(width = 0.55, outlier.shape = NA, alpha = 0.7) +
-  geom_jitter(width = 0.12, size = 1.8, alpha = 0.75) +
-  stat_summary(fun = mean, geom = "point", shape = 23, size = 3, fill = "white") +
-  scale_fill_brewer(palette = "Set2") +
-  scale_color_brewer(palette = "Set2") +
-  labs(
-    title = "箱线图 + 抖动点（展示分布与离群值）",
-    x = "",
-    y = ""
-  ) +
-  theme_classic(base_size = 14) +
-  theme(
-    plot.title = element_text(face = "bold", hjust = 0.5),
-    axis.title = element_text(face = "bold"),
-    legend.position = "top"
-  )
+  geom_boxplot(width = 0.55, outlier.shape = NA, alpha = 0.75, color = "grey20") +
+  geom_jitter(width = 0.12, size = 1.3, alpha = 0.55, color = "grey10") +
+  stat_summary(fun = mean, geom = "point", shape = 23, size = 3.1, fill = "white", color = "black") +
+  ggpubr::stat_compare_means(comparisons = list(c("Control", "Treatment A"), c("Control", "Treatment B")),
+                             method = "wilcox.test", label = "p.signif") +
+  scale_fill_pub() +
+  labs(title = "Group-wise Distribution with Jittered Points", subtitle = "Median, IQR and individual observations", x = NULL, y = "Biomarker level (a.u.)") +
+  theme_pub()
 
 print(p)
-ggsave("box_jitter_plot.png", p, width = 7.2, height = 5.2, dpi = 320)
+save_pub(p, "box_jitter_publication", width = 180, height = 140, dpi = 600)

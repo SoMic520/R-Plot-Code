@@ -1,34 +1,34 @@
 # 14. 二维密度图
-# 二维核密度热力图
-# 说明：本脚本使用模拟数据，运行后会在当前目录导出图片文件。
+# 出版级版本：统一主题、颜色体系与导出规格（PDF/TIFF/PNG）。
 
 suppressPackageStartupMessages({
   library(ggplot2)
   library(dplyr)
+  library(tidyr)
+  library(scales)
+  library(RColorBrewer)
+  library(ggpubr)
+  library(viridis)
 })
 
-set.seed(123)
+if (file.exists("Code/00. 出版级绘图主题与导出函数.R")) {
+  source("Code/00. 出版级绘图主题与导出函数.R")
+} else {
+  stop("请先确保存在 Code/00. 出版级绘图主题与导出函数.R")
+}
+
+set.seed(2025)
 plot_data <- tibble::tibble(
-  x = rnorm(280, 0, 1.2),
-  y = 0.7 * x + rnorm(280, 0, 1)
+  x = c(rnorm(220, -1.0, 0.85), rnorm(200, 1.2, 0.9)),
+  y = c(rnorm(220, -0.8, 0.7), rnorm(200, 1.5, 0.8))
 )
 
 p <- ggplot(plot_data, aes(x, y)) +
-geom_point(size = 1.2, alpha = 0.35, color = "grey35") +
-  stat_density_2d_filled(alpha = 0.7, contour_var = "ndensity") +
-  scale_fill_brewer(palette = "Set2") +
-  scale_color_brewer(palette = "Set2") +
-  labs(
-    title = "二维核密度热力图",
-    x = "",
-    y = ""
-  ) +
-  theme_classic(base_size = 14) +
-  theme(
-    plot.title = element_text(face = "bold", hjust = 0.5),
-    axis.title = element_text(face = "bold"),
-    legend.position = "top"
-  )
+  stat_density_2d_filled(aes(fill = after_stat(level)), contour_var = "density", alpha = 0.8) +
+  geom_point(size = 0.7, alpha = 0.35, color = "grey20") +
+  scale_fill_viridis_d(option = "C") +
+  labs(title = "2D Density Map", subtitle = "Cluster structure in bivariate space", x = "Feature 1", y = "Feature 2", fill = "Density") +
+  theme_pub()
 
 print(p)
-ggsave("density2d_plot.png", p, width = 7.2, height = 5.2, dpi = 320)
+save_pub(p, "density2d_publication", width = 180, height = 140, dpi = 600)

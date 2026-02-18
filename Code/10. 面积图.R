@@ -1,35 +1,36 @@
 # 10. 面积图
-# 面积图（连续时间趋势）
-# 说明：本脚本使用模拟数据，运行后会在当前目录导出图片文件。
+# 出版级版本：统一主题、颜色体系与导出规格（PDF/TIFF/PNG）。
 
 suppressPackageStartupMessages({
   library(ggplot2)
   library(dplyr)
+  library(tidyr)
+  library(scales)
+  library(RColorBrewer)
+  library(ggpubr)
+  library(viridis)
 })
 
-set.seed(123)
-plot_data <- tidyr::crossing(
-  time = seq(1, 30, by = 1),
-  group = c("Control", "Treatment")
-) |>
-  mutate(value = ifelse(group == "Control", 25 + sin(time/3) * 3, 28 + cos(time/4) * 4) + rnorm(n(), 0, 1.2))
+if (file.exists("Code/00. 出版级绘图主题与导出函数.R")) {
+  source("Code/00. 出版级绘图主题与导出函数.R")
+} else {
+  stop("请先确保存在 Code/00. 出版级绘图主题与导出函数.R")
+}
 
-p <- ggplot(plot_data, aes(time, value, fill = group, color = group)) +
-geom_area(alpha = 0.55, position = "identity") +
-  geom_line(linewidth = 0.8) +
-  scale_fill_brewer(palette = "Set2") +
-  scale_color_brewer(palette = "Set2") +
-  labs(
-    title = "面积图（连续时间趋势）",
-    x = "",
-    y = ""
-  ) +
-  theme_classic(base_size = 14) +
-  theme(
-    plot.title = element_text(face = "bold", hjust = 0.5),
-    axis.title = element_text(face = "bold"),
-    legend.position = "top"
-  )
+set.seed(2025)
+plot_data <- tidyr::crossing(
+  day = 1:45,
+  group = factor(c("Control", "Intervention"), levels = c("Control", "Intervention"))
+) |>
+  dplyr::mutate(value = ifelse(group == "Control", 30 + sin(day / 4) * 4, 34 + cos(day / 5) * 5) + rnorm(dplyr::n(), 0, 1.0))
+
+p <- ggplot(plot_data, aes(day, value, fill = group, color = group)) +
+  geom_area(alpha = 0.28, position = "identity") +
+  geom_line(linewidth = 0.82) +
+  scale_fill_pub() +
+  scale_color_pub() +
+  labs(title = "Area Plot for Temporal Profiles", subtitle = "Two-group trajectories over time", x = "Day", y = "Value") +
+  theme_pub()
 
 print(p)
-ggsave("area_plot.png", p, width = 7.2, height = 5.2, dpi = 320)
+save_pub(p, "area_publication", width = 180, height = 140, dpi = 600)

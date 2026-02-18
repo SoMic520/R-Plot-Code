@@ -1,39 +1,38 @@
 # 22. Cleveland点图
-# Cleveland 点图（双组比较）
-# 说明：本脚本使用模拟数据，运行后会在当前目录导出图片文件。
+# 出版级版本：统一主题、颜色体系与导出规格（PDF/TIFF/PNG）。
 
 suppressPackageStartupMessages({
   library(ggplot2)
   library(dplyr)
+  library(tidyr)
+  library(scales)
+  library(RColorBrewer)
+  library(ggpubr)
+  library(viridis)
 })
 
-set.seed(123)
-plot_data <- tibble::tibble(
-  item = paste0("指标", sprintf("%02d", 1:12)),
-  group_a = round(rnorm(12, 55, 8), 1),
-  group_b = round(rnorm(12, 62, 9), 1)
-) |>
-  mutate(min_value = pmin(group_a, group_b),
-         max_value = pmax(group_a, group_b)) |>
-  arrange(group_b - group_a)
+if (file.exists("Code/00. 出版级绘图主题与导出函数.R")) {
+  source("Code/00. 出版级绘图主题与导出函数.R")
+} else {
+  stop("请先确保存在 Code/00. 出版级绘图主题与导出函数.R")
+}
 
-p <- ggplot(plot_data, aes(y = reorder(item, max_value))) +
-geom_segment(aes(x = min_value, xend = max_value, y = item, yend = item), color = "grey70", linewidth = 1.1) +
-  geom_point(aes(x = group_a, color = "Group A"), size = 2.8) +
-  geom_point(aes(x = group_b, color = "Group B"), size = 2.8) +
-  scale_fill_brewer(palette = "Set2") +
-  scale_color_brewer(palette = "Set2") +
-  labs(
-    title = "Cleveland 点图（双组比较）",
-    x = "",
-    y = ""
-  ) +
-  theme_classic(base_size = 14) +
-  theme(
-    plot.title = element_text(face = "bold", hjust = 0.5),
-    axis.title = element_text(face = "bold"),
-    legend.position = "top"
-  )
+set.seed(2025)
+plot_data <- tibble::tibble(
+  marker = paste0("Marker ", sprintf("%02d", 1:12)),
+  control = round(rnorm(12, 52, 6), 1),
+  treatment = round(rnorm(12, 61, 7), 1)
+) |>
+  dplyr::mutate(min_v = pmin(control, treatment), max_v = pmax(control, treatment)) |>
+  dplyr::arrange(treatment - control)
+
+p <- ggplot(plot_data, aes(y = reorder(marker, max_v))) +
+  geom_segment(aes(x = min_v, xend = max_v, yend = reorder(marker, max_v)), color = "grey73", linewidth = 0.9) +
+  geom_point(aes(x = control, color = "Control"), size = 2.8) +
+  geom_point(aes(x = treatment, color = "Treatment"), size = 2.8) +
+  scale_color_manual(values = c("Control" = "#0072B2", "Treatment" = "#D55E00")) +
+  labs(title = "Cleveland Dot Plot", subtitle = "Paired comparison per marker", x = "Score", y = NULL, color = NULL) +
+  theme_pub()
 
 print(p)
-ggsave("cleveland_plot.png", p, width = 7.2, height = 5.2, dpi = 320)
+save_pub(p, "cleveland_publication", width = 180, height = 140, dpi = 600)

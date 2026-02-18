@@ -1,40 +1,40 @@
 # 19. 桑基图（ggalluvial）
-# 桑基图（流程转化）
-# 说明：本脚本使用模拟数据，运行后会在当前目录导出图片文件。
+# 出版级版本：统一主题、颜色体系与导出规格（PDF/TIFF/PNG）。
 
 suppressPackageStartupMessages({
   library(ggplot2)
   library(dplyr)
-  library(ggalluvial)
+  library(tidyr)
+  library(scales)
+  library(RColorBrewer)
+  library(ggpubr)
+  library(viridis)
 })
 
+if (file.exists("Code/00. 出版级绘图主题与导出函数.R")) {
+  source("Code/00. 出版级绘图主题与导出函数.R")
+} else {
+  stop("请先确保存在 Code/00. 出版级绘图主题与导出函数.R")
+}
+
 plot_data <- tibble::tribble(
-  ~stage1, ~stage2, ~stage3, ~n,
-  "A组", "访视1", "完成", 32,
-  "A组", "访视1", "脱落", 8,
-  "B组", "访视1", "完成", 26,
-  "B组", "访视1", "脱落", 14,
-  "C组", "访视1", "完成", 20,
-  "C组", "访视1", "脱落", 10
+  ~baseline, ~visit1, ~outcome, ~n,
+  "A", "Follow-up", "Complete", 42,
+  "A", "Follow-up", "Dropout", 8,
+  "B", "Follow-up", "Complete", 31,
+  "B", "Follow-up", "Dropout", 14,
+  "C", "Follow-up", "Complete", 25,
+  "C", "Follow-up", "Dropout", 10
 )
 
-p <- ggplot(plot_data,
-            aes(axis1 = stage1, axis2 = stage2, axis3 = stage3, y = n)) +
-ggalluvial::geom_alluvium(aes(fill = stage1), alpha = 0.75) +
-  ggalluvial::geom_stratum(width = 0.28, fill = "grey90", color = "grey30") +
-  ggalluvial::geom_text(stat = "stratum", aes(label = after_stat(stratum)), size = 3) +
-  ggalluvial::scale_x_discrete(limits = c("基线分组", "中期访视", "结局"), expand = c(.08, .08)) +
-  labs(
-    title = "桑基图（流程转化）",
-    x = "",
-    y = ""
-  ) +
-  theme_classic(base_size = 14) +
-  theme(
-    plot.title = element_text(face = "bold", hjust = 0.5),
-    axis.title = element_text(face = "bold"),
-    legend.position = "top"
-  )
+p <- ggplot(plot_data, aes(axis1 = baseline, axis2 = visit1, axis3 = outcome, y = n)) +
+  ggalluvial::geom_alluvium(aes(fill = baseline), alpha = 0.78, width = 0.2) +
+  ggalluvial::geom_stratum(width = 0.22, fill = "grey94", color = "grey35") +
+  ggalluvial::geom_text(stat = "stratum", aes(label = after_stat(stratum)), size = 3.2) +
+  ggalluvial::scale_x_discrete(limits = c("Baseline", "Visit 1", "Outcome"), expand = c(0.08, 0.08)) +
+  scale_fill_pub() +
+  labs(title = "Alluvial (Sankey-style) Plot", subtitle = "Patient flow across stages", x = NULL, y = "Count", fill = "Baseline") +
+  theme_pub()
 
 print(p)
-ggsave("alluvial_plot.png", p, width = 7.2, height = 5.2, dpi = 320)
+save_pub(p, "alluvial_publication", width = 180, height = 140, dpi = 600)
